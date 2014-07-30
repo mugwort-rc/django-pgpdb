@@ -1,0 +1,4 @@
+Django >= 1.4.2
+python-support >= 1.0.15
+python-django-extensions >= 1.2.5
+python-pgpdump >= 1.4
