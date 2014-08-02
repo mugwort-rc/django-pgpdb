@@ -1,6 +1,8 @@
 import os
+import re
 import base64
 
+from django import forms
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
@@ -60,9 +62,38 @@ class PGPKeyModelManager(models.Manager):
             instance.crc24 = base64.b64encode(crc_bin)
             instance.save()
 
+            # public_keys
+            for packet in pgp.packets():
+                if ( not isinstance(packet, pgpdump.packet.PublicKeyPacket) and
+                     not isinstance(packet, pgpdump.packet.UserIDPacket) ):
+                    continue
+                if isinstance(packet, pgpdump.packet.PublicKeyPacket):
+                    is_sub = isinstance(packet, pgpdump.packet.PublicSubkeyPacket)
+                    expir = None
+                    if packet.expiration_time is not None:
+                        expir = packet.expiration_time
+                    fingerprint = packet.fingerprint.lower()
+                    keyid = packet.key_id.lower()
+                    PGPPublicKeyModel.objects.create(
+                        key=instance, sub=is_sub,
+                        creation_time=packet.creation_time, expiration_time=expir,
+                        algorithm=packet.raw_pub_algorithm,
+                        fingerprint=fingerprint, keyid=keyid
+                    )
+                elif isinstance(packet, pgpdump.packet.UserIDPacket):
+                    name = comment = ''
+                    email = packet.user_email
+                    m = re.match(r'^(.+)\s\((.+)\)$', packet.user_name)
+                    if m:
+                        name = m.group(1)
+                        comment = m.group(2)
+                    else:
+                        name = packet.user_name
+                    PGPUserIDModel.objects.create(key=instance, name=name, comment=comment, email=email)
+
     def post_delete(self, sender, instance, **kwargs):
         """
-            \sa: self.save_to_storage()
+            \sa: self.post_save()
         """
         unregister_file(instance.file)
 
@@ -76,19 +107,22 @@ def _pgp_key_model_upload_to(instance, filename):
 
 class PGPKeyModel(models.Model):
     uid = UUIDField()
-    user = models.ForeignKey(User)
+    user = models.ForeignKey(User, blank=True, null=True)
     file = models.FileField(upload_to=_pgp_key_model_upload_to, storage=default_storage)
     crc24 = models.CharField(max_length=4)  # =([A-Za-z0-9+/]{4})
     compromised = models.BooleanField(default=False)
 
     objects = PGPKeyModelManager()
 
+class PGPUserIDModel(models.Model):
+    key = models.ForeignKey('PGPKeyModel', related_name='userids')
+    name = models.TextField()
+    comment = models.TextField()
+    email = models.TextField()
+
 class PGPPublicKeyModel(models.Model):
     key = models.ForeignKey('PGPKeyModel', related_name='public_keys')
     sub = models.BooleanField(default=False)
-
-class PGPPublicKeyInfoModel(models.Model):
-    public_key = models.ForeignKey('PGPPublicKeyModel', related_name='info')
     creation_time = models.DateTimeField()
     expiration_time = models.DateTimeField(null=True)
     algorithm = models.IntegerField()
