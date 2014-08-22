@@ -78,7 +78,7 @@ class PGPKeyModelManager(models.Manager):
                     keyid = packet.key_id.lower()
                     PGPPublicKeyModel.objects.create(
                         key=instance,
-                        sub=is_sub,
+                        is_sub=is_sub,
                         creation_time=packet.creation_time,
                         expiration_time=expir,
                         algorithm=packet.raw_pub_algorithm,
@@ -112,7 +112,7 @@ class PGPKeyModel(models.Model):
     file = models.FileField(upload_to=_pgp_key_model_upload_to,
         storage=default_storage)
     crc24 = models.CharField(max_length=4)  # =([A-Za-z0-9+/]{4})
-    compromised = models.BooleanField(default=False)
+    is_compromised = models.BooleanField(default=False)
 
     objects = PGPKeyModelManager()
 
@@ -122,7 +122,7 @@ class PGPUserIDModel(models.Model):
 
 class PGPPublicKeyModel(models.Model):
     key = models.ForeignKey('PGPKeyModel', related_name='public_keys')
-    sub = models.BooleanField(default=False)
+    is_sub = models.BooleanField(default=False)
     creation_time = models.DateTimeField()
     expiration_time = models.DateTimeField(null=True)
     algorithm = models.IntegerField()
