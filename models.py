@@ -11,6 +11,7 @@ from django.db import models
 from django.db.models.signals import class_prepared, post_save, post_delete
 
 import pgpdump
+from pgpdump.packet import PublicKeyPacket, PublicSubkeyPacket, UserIDPacket
 from pgpdump.utils import crc24, PgpdumpException
 
 from django_extensions.db.fields import UUIDField
@@ -64,23 +65,26 @@ class PGPKeyModelManager(models.Manager):
 
             # public_keys
             for packet in pgp.packets():
-                if ( not isinstance(packet, pgpdump.packet.PublicKeyPacket) and
-                     not isinstance(packet, pgpdump.packet.UserIDPacket) ):
+                if ( not isinstance(packet, PublicKeyPacket) and
+                     not isinstance(packet, UserIDPacket) ):
                     continue
-                if isinstance(packet, pgpdump.packet.PublicKeyPacket):
-                    is_sub = isinstance(packet, pgpdump.packet.PublicSubkeyPacket)
+                if isinstance(packet, PublicKeyPacket):
+                    is_sub = isinstance(packet, PublicSubkeyPacket)
                     expir = None
                     if packet.expiration_time is not None:
                         expir = packet.expiration_time
                     fingerprint = packet.fingerprint.lower()
                     keyid = packet.key_id.lower()
                     PGPPublicKeyModel.objects.create(
-                        key=instance, sub=is_sub,
-                        creation_time=packet.creation_time, expiration_time=expir,
+                        key=instance,
+                        sub=is_sub,
+                        creation_time=packet.creation_time,
+                        expiration_time=expir,
                         algorithm=packet.raw_pub_algorithm,
-                        fingerprint=fingerprint, keyid=keyid
+                        fingerprint=fingerprint,
+                        keyid=keyid
                     )
-                elif isinstance(packet, pgpdump.packet.UserIDPacket):
+                elif isinstance(packet, UserIDPacket):
                     name = comment = ''
                     email = packet.user_email
                     m = re.match(r'^(.+)\s\((.+)\)$', packet.user_name)
@@ -89,7 +93,8 @@ class PGPKeyModelManager(models.Manager):
                         comment = m.group(2)
                     else:
                         name = packet.user_name
-                    PGPUserIDModel.objects.create(key=instance, name=name, comment=comment, email=email)
+                    PGPUserIDModel.objects.create(key=instance, name=name,
+                        comment=comment, email=email)
 
     def post_delete(self, sender, instance, **kwargs):
         """
@@ -108,7 +113,8 @@ def _pgp_key_model_upload_to(instance, filename):
 class PGPKeyModel(models.Model):
     uid = UUIDField()
     user = models.ForeignKey(User, blank=True, null=True)
-    file = models.FileField(upload_to=_pgp_key_model_upload_to, storage=default_storage)
+    file = models.FileField(upload_to=_pgp_key_model_upload_to,
+        storage=default_storage)
     crc24 = models.CharField(max_length=4)  # =([A-Za-z0-9+/]{4})
     compromised = models.BooleanField(default=False)
 
