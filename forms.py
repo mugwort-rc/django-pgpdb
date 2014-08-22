@@ -5,10 +5,12 @@ import models
 class PGPUserIDModelForm(forms.ModelForm):
     class Meta:
         model = models.PGPUserIDModel
-        fields = ('name', 'comment', 'email',)
+        fields = ('userid',)
         widgets = {
-            'name': forms.TextInput(),
-            'comment': forms.TextInput(),
-            'email': forms.TextInput(),
+            'userid': forms.TextInput(),
         }
+
+class KeyServerAddForm(forms.Form):
+    keytext = forms.CharField(widget=forms.Textarea)
+    # TODO: options
 

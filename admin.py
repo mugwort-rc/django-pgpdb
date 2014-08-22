@@ -10,12 +10,7 @@ class PGPKeyModelAdmin(admin.ModelAdmin):
     def user_ids(self, obj):
         html = ''
         for userid in obj.userids.all():
-            name = ''
-            if userid.comment:
-                name = '{0} ({1})'.format(userid.name, userid.comment)
-            else:
-                name = userid.name
-            html += '<li><a href="../pgpuseridmodel/{0}/">{1} &lt;{2}&gt;</a></li>'.format(userid.id, name, userid.email)
+            html += '<li><a href="../pgpuseridmodel/{0}/">{1}</a></li>'.format(userid.id, userid.userid)
         return '<ul>{0}</ul>'.format(html)
     user_ids.allow_tags = True
 
@@ -30,7 +25,7 @@ admin.site.register(models.PGPKeyModel, PGPKeyModelAdmin)
 
 class PGPUserIDModelAdmin(admin.ModelAdmin):
     form = forms.PGPUserIDModelForm
-    list_display = ('name', 'comment', 'email',)
+    list_display = ('userid',)
 
 admin.site.register(models.PGPUserIDModel, PGPUserIDModelAdmin)
 

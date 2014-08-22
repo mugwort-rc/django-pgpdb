@@ -86,16 +86,8 @@ class PGPKeyModelManager(models.Manager):
                         keyid=keyid
                     )
                 elif isinstance(packet, UserIDPacket):
-                    name = comment = ''
-                    email = packet.user_email
-                    m = re.match(r'^(.+)\s\((.+)\)$', packet.user_name)
-                    if m:
-                        name = m.group(1)
-                        comment = m.group(2)
-                    else:
-                        name = packet.user_name
-                    PGPUserIDModel.objects.create(key=instance, name=name,
-                        comment=comment, email=email)
+                    userid = packet.data
+                    PGPUserIDModel.objects.create(key=instance, userid=userid)
 
     def post_delete(self, sender, instance, **kwargs):
         """
@@ -126,9 +118,7 @@ class PGPKeyModel(models.Model):
 
 class PGPUserIDModel(models.Model):
     key = models.ForeignKey('PGPKeyModel', related_name='userids')
-    name = models.TextField()
-    comment = models.TextField()
-    email = models.TextField()
+    userid = models.TextField()
 
 class PGPPublicKeyModel(models.Model):
     key = models.ForeignKey('PGPKeyModel', related_name='public_keys')
