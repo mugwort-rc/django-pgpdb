@@ -1,6 +1,7 @@
 import os
 import re
 import base64
+import uuid
 
 from django import forms
 from django.conf import settings
@@ -103,7 +104,10 @@ class PGPKeyModelManager(models.Manager):
         unregister_file(instance.file)
 
     def save_to_storage(self, user, data):
-        return self.create(user=user, file=ContentFile(data))
+        uid = str(uuid.uuid4())
+        path = PGPKeyModelManager.PGP_KEY_STORAGE.format(uid[:2], uid[2:])
+        fp = register_file(path, data)
+        return self.create(uid=uid, user=user, file=fp)
 
 def _pgp_key_model_upload_to(instance, filename):
     uid = instance.uid
