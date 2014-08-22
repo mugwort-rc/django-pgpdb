@@ -10,6 +10,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import models
 from django.db.models.signals import class_prepared, post_save, post_delete
+from django.utils.translation import ugettext_lazy as _
 
 import pgpdump
 from pgpdump.packet import PublicKeyPacket, PublicSubkeyPacket, UserIDPacket
@@ -121,11 +122,47 @@ class PGPUserIDModel(models.Model):
     userid = models.TextField()
 
 class PGPPublicKeyModel(models.Model):
+
+    UNKNOWN = 0
+    RSA_ENC_SIGN = 1
+    RSA_ENC = 2
+    RSA_SIGN = 3
+    ELGAMAL_ENC = 16
+    DSA = 17
+    ECDH = 18
+    ECDSA = 19
+    ELGAMAL_ENC_SIGN = 20
+    DH = 21
+
+    PKA_MAP = {
+        UNKNOWN: _('Unknown'),
+        RSA_ENC_SIGN: _('RSA (Encrypt or Sign)'),
+        RSA_ENC: _('RSA Encrypt-Only'),
+        RSA_SIGN: _('RSA Sign-Only'),
+        ELGAMAL_ENC: _('Elgamal (Encrypt-Only)'),
+        DSA: _('DSA (Digital Signature Algorithm)'),
+        ECDH: _('ECDH public key algorithm'),
+        ECDSA: _('ECDSA public key algorithm'),
+        ELGAMAL_ENC_SIGN: _('formerly Elgamal Encrypt or Sign'),
+        DH: _('Diffie-Hellman'),
+    }
+
     key = models.ForeignKey('PGPKeyModel', related_name='public_keys')
     is_sub = models.BooleanField(default=False)
     creation_time = models.DateTimeField()
     expiration_time = models.DateTimeField(null=True)
-    algorithm = models.IntegerField()
+    algorithm = models.IntegerField(default=0, choices=(
+        (UNKNOWN, PKA_MAP[UNKNOWN]),
+        (RSA_ENC_SIGN, PKA_MAP[RSA_ENC_SIGN]),
+        (RSA_ENC, PKA_MAP[RSA_ENC]),
+        (RSA_SIGN, PKA_MAP[RSA_SIGN]),
+        (ELGAMAL_ENC, PKA_MAP[ELGAMAL_ENC]),
+        (DSA, PKA_MAP[DSA]),
+        (ECDH, PKA_MAP[ECDH]),
+        (ECDSA, PKA_MAP[ECDSA]),
+        (ELGAMAL_ENC_SIGN, PKA_MAP[ELGAMAL_ENC_SIGN]),
+        (DH, PKA_MAP[DH]),
+    ))
     fingerprint = models.CharField(max_length=40)
     keyid = models.CharField(max_length=16)
 
