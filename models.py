@@ -10,6 +10,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import models
 from django.db.models.signals import class_prepared, post_save, post_delete
+from django.utils.timezone import make_aware, utc
 from django.utils.translation import ugettext_lazy as _
 
 import pgpdump
@@ -72,15 +73,16 @@ class PGPKeyModelManager(models.Manager):
                     continue
                 if isinstance(packet, PublicKeyPacket):
                     is_sub = isinstance(packet, PublicSubkeyPacket)
+                    creation_time = make_aware(packet.creation_time, utc)
                     expir = None
                     if packet.expiration_time is not None:
-                        expir = packet.expiration_time
+                        expir = make_aware(packet.expiration_time, utc)
                     fingerprint = packet.fingerprint.lower()
                     keyid = packet.key_id.lower()
                     PGPPublicKeyModel.objects.create(
                         key=instance,
                         is_sub=is_sub,
-                        creation_time=packet.creation_time,
+                        creation_time=creation_time,
                         expiration_time=expir,
                         algorithm=packet.raw_pub_algorithm,
                         fingerprint=fingerprint,
