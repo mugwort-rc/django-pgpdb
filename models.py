@@ -14,10 +14,25 @@ from django.utils.timezone import make_aware, utc
 from django.utils.translation import ugettext_lazy as _
 
 import pgpdump
-from pgpdump.packet import PublicKeyPacket, PublicSubkeyPacket, UserIDPacket
+from pgpdump.packet import (
+    PublicKeyPacket, PublicSubkeyPacket,
+    SignaturePacket, UserIDPacket
+)
 from pgpdump.utils import crc24, PgpdumpException
 
 from django_extensions.db.fields import UUIDField
+
+PGP_ARMOR_BASE = '''-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: django-pgpdb v1
+
+{0}
+={1}
+-----END PGP PUBLIC KEY BLOCK-----'''
+
+def encode_armor(data, crc24):
+    data = base64.b64encode(data)
+    data = '\n'.join(data[i:i+64] for i in range(0, len(data), 64))
+    return PGP_ARMOR_BASE.format(data, crc24)
 
 def register_file(path, data):
     return default_storage.save(path, ContentFile(data))
@@ -66,10 +81,15 @@ class PGPKeyModelManager(models.Manager):
             instance.crc24 = base64.b64encode(crc_bin)
             instance.save()
 
-            # public_keys
+            # parse packets
+            index = 0
+            last_pubkey = None
+            last_userid = None
             for packet in pgp.packets():
+                index += 1
                 if ( not isinstance(packet, PublicKeyPacket) and
-                     not isinstance(packet, UserIDPacket) ):
+                     not isinstance(packet, UserIDPacket) and
+                     not isinstance(packet, SignaturePacket) ):
                     continue
                 if isinstance(packet, PublicKeyPacket):
                     is_sub = isinstance(packet, PublicSubkeyPacket)
@@ -77,20 +97,52 @@ class PGPKeyModelManager(models.Manager):
                     expir = None
                     if packet.expiration_time is not None:
                         expir = make_aware(packet.expiration_time, utc)
+                    algo = packet.raw_pub_algorithm
+                    bits = 0
+                    if algo in (1, 2, 3):
+                        bits = len(bin(packet.modulus)[2:])
+                    elif algo == 17:
+                        bits = len(bin(packet.prime)[2:])
+                    elif algo in (16, 20):
+                        bits = len(bin(packet.prime)[2:])
                     fingerprint = packet.fingerprint.lower()
                     keyid = packet.key_id.lower()
-                    PGPPublicKeyModel.objects.create(
+                    last_pubkey = PGPPublicKeyModel.objects.create(
+                        index=index,
                         key=instance,
                         is_sub=is_sub,
                         creation_time=creation_time,
                         expiration_time=expir,
-                        algorithm=packet.raw_pub_algorithm,
+                        algorithm=algo,
+                        bits=bits,
                         fingerprint=fingerprint,
                         keyid=keyid
                     )
                 elif isinstance(packet, UserIDPacket):
                     userid = packet.data
-                    PGPUserIDModel.objects.create(key=instance, userid=userid)
+                    last_userid = PGPUserIDModel.objects.create(
+                        index=index,
+                        key=instance,
+                        userid=userid
+                    )
+                elif isinstance(packet, SignaturePacket) and last_userid:
+                    creation_time = make_aware(packet.creation_time, utc)
+                    expir = None
+                    if packet.expiration_time is not None:
+                        expir = make_aware(packet.expiration_time, utc)
+                    keyid = packet.key_id.lower()
+                    PGPSignatureModel.objects.create(
+                        index=index,
+                        key=instance,
+                        pkey=last_pubkey,
+                        userid=last_userid,
+                        type=packet.raw_sig_type,
+                        pka=packet.raw_pub_algorithm,
+                        hash=packet.raw_hash_algorithm,
+                        creation_time=creation_time,
+                        expiration_time=expir,
+                        keyid=keyid
+                    )
 
     def post_delete(self, sender, instance, **kwargs):
         """
@@ -119,11 +171,40 @@ class PGPKeyModel(models.Model):
 
     objects = PGPKeyModelManager()
 
-class PGPUserIDModel(models.Model):
-    key = models.ForeignKey('PGPKeyModel', related_name='userids')
-    userid = models.TextField()
+    def first(self):
+        return {
+            'public_key': self.public_keys.order_by('id').first(),
+            'userid': self.userids.order_by('id').first(),
+        }
 
-class PGPPublicKeyModel(models.Model):
+    def packets(self):
+        result = []
+        result += [x for x in self.public_keys.all()]
+        result += [x for x in self.userids.all()]
+        result += [x for x in self.signatures.all()]
+        return sorted(result, key=lambda x: x.index)
+
+    def data(self):
+        data = read_file(self.file)
+        return encode_armor(data, self.crc24)
+
+class PGPPacketModel(models.Model):
+    index = models.IntegerField()
+
+    class Meta:
+        abstract = True
+
+    def is_public_key(self):
+        return False
+
+    def is_userid(self):
+        return False
+
+    def is_signature(self):
+        return False
+
+# Tag 6, Tag14
+class PGPPublicKeyModel(PGPPacketModel):
 
     UNKNOWN = 0
     RSA_ENC_SIGN = 1
@@ -149,6 +230,19 @@ class PGPPublicKeyModel(models.Model):
         DH: _('Diffie-Hellman'),
     }
 
+    SIMPLE_PKA_MAP = {
+        UNKNOWN: _('Unknown'),
+        RSA_ENC_SIGN: _('RSA'),
+        RSA_ENC: _('RSA'),
+        RSA_SIGN: _('RSA'),
+        ELGAMAL_ENC: _('Elgamal'),
+        DSA: _('DSA'),
+        ECDH: _('ECDH'),
+        ECDSA: _('ECDSA'),
+        ELGAMAL_ENC_SIGN: _('Elgamal'),
+        DH: _('DH'),
+    }
+
     key = models.ForeignKey('PGPKeyModel', related_name='public_keys')
     is_sub = models.BooleanField(default=False)
     creation_time = models.DateTimeField()
@@ -165,6 +259,164 @@ class PGPPublicKeyModel(models.Model):
         (ELGAMAL_ENC_SIGN, PKA_MAP[ELGAMAL_ENC_SIGN]),
         (DH, PKA_MAP[DH]),
     ))
+    bits = models.IntegerField()
     fingerprint = models.CharField(max_length=40)
     keyid = models.CharField(max_length=16)
+
+    def algorithm_str(self):
+        return unicode(self.PKA_MAP[self.algorithm])
+
+    def simple_algorithm_str(self):
+        return unicode(self.SIMPLE_PKA_MAP[self.algorithm])
+
+    def is_public_key(self):
+        return True
+
+# Tag 13
+class PGPUserIDModel(PGPPacketModel):
+    key = models.ForeignKey('PGPKeyModel', related_name='userids')
+    userid = models.TextField()
+
+    def is_userid(self):
+        return True
+
+# Tag 2
+class PGPSignatureModel(PGPPacketModel):
+
+    SIG_UNKNOWN = -1
+    BINARY = 0x00
+    TEXT = 0x01
+    STANDALONE = 0x02
+    KEY_GENERAL = 0x10
+    KEY_PERSONAL = 0x11
+    KEY_CASUAL = 0x12
+    KEY_POSITIVE = 0x13
+    BINDING = 0x18
+    DIRECT = 0x1f
+    KEY_REVOKE = 0x20
+    SUBKEY_REVOKE = 0x28
+    ID_REVOKE = 0x30
+    TIMESTAMP = 0x40
+
+    SIG_MAP = {
+        SIG_UNKNOWN: _('Unknown'),
+        BINARY: _('Binary'),
+        TEXT: _('Text'),
+        STANDALONE: _('Standalone'),
+        KEY_GENERAL: _('Key General'),
+        KEY_PERSONAL: _('Key Personal'),
+        KEY_CASUAL: _('Key Casual'),
+        KEY_POSITIVE: _('Key Personal'),
+        BINDING: _('Binding'),
+        DIRECT: _('Direct'),
+        KEY_REVOKE: _('Key Revoke'),
+        SUBKEY_REVOKE: _('SubKey Revoke'),
+        ID_REVOKE: _('ID Revoke'),
+        TIMESTAMP: _('Timestamp'),
+    }
+
+    UNKNOWN = PGPPublicKeyModel.UNKNOWN
+    RSA_ENC_SIGN = PGPPublicKeyModel.RSA_ENC_SIGN
+    RSA_ENC = PGPPublicKeyModel.RSA_ENC
+    RSA_SIGN = PGPPublicKeyModel.RSA_SIGN
+    ELGAMAL_ENC = PGPPublicKeyModel.ELGAMAL_ENC
+    DSA = PGPPublicKeyModel.DSA
+    ECDH = PGPPublicKeyModel.ECDH
+    ECDSA = PGPPublicKeyModel.ECDSA
+    ELGAMAL_ENC_SIGN = PGPPublicKeyModel.ELGAMAL_ENC_SIGN
+    DH = PGPPublicKeyModel.DH
+
+    PKA_MAP = PGPPublicKeyModel.PKA_MAP
+    SIMPLE_PKA_MAP = PGPPublicKeyModel.SIMPLE_PKA_MAP
+
+    MD5 = 1
+    SHA1 = 2
+    RIPEMD160 = 3
+    RESERVED4 = 4
+    RESERVED5 = 5
+    RESERVED6 = 6
+    RESERVED7 = 7
+    SHA256 = 8
+    SHA384 = 9
+    SHA512 = 10
+    SHA224 = 11
+
+    HASH_MAP = {
+        UNKNOWN: PKA_MAP[UNKNOWN],
+        MD5: _('MD5'),
+        SHA1: _('SHA1'),
+        RIPEMD160: _('RIPEMD160'),
+        RESERVED4: _('Reserved (4)'),
+        RESERVED5: _('Reserved (5)'),
+        RESERVED6: _('Reserved (6)'),
+        RESERVED7: _('Reserved (7)'),
+        SHA256: _('SHA256'),
+        SHA384: _('SHA384'),
+        SHA512: _('SHA512'),
+        SHA224: _('SHA224'),
+    }
+
+    key = models.ForeignKey('PGPKeyModel', related_name='signatures')
+    pkey = models.ForeignKey('PGPPublicKeyModel', related_name='signatures')
+    userid = models.ForeignKey('PGPUserIDModel', related_name='signatures')
+    type = models.IntegerField(default=-1, choices=(
+        (SIG_UNKNOWN, SIG_MAP[SIG_UNKNOWN]),
+        (BINARY, SIG_MAP[BINARY]),
+        (TEXT, SIG_MAP[TEXT]),
+        (STANDALONE, SIG_MAP[STANDALONE]),
+        (KEY_GENERAL, SIG_MAP[KEY_GENERAL]),
+        (KEY_PERSONAL, SIG_MAP[KEY_PERSONAL]),
+        (KEY_CASUAL, SIG_MAP[KEY_CASUAL]),
+        (KEY_POSITIVE, SIG_MAP[KEY_POSITIVE]),
+        (BINDING, SIG_MAP[BINDING]),
+        (DIRECT, SIG_MAP[DIRECT]),
+        (KEY_REVOKE, SIG_MAP[KEY_REVOKE]),
+        (SUBKEY_REVOKE, SIG_MAP[SUBKEY_REVOKE]),
+        (ID_REVOKE, SIG_MAP[ID_REVOKE]),
+        (TIMESTAMP, SIG_MAP[TIMESTAMP]),
+    ))
+    pka = models.IntegerField(default=0, choices=(
+        (UNKNOWN, PKA_MAP[UNKNOWN]),
+        (RSA_ENC_SIGN, PKA_MAP[RSA_ENC_SIGN]),
+        (RSA_ENC, PKA_MAP[RSA_ENC]),
+        (RSA_SIGN, PKA_MAP[RSA_SIGN]),
+        (ELGAMAL_ENC, PKA_MAP[ELGAMAL_ENC]),
+        (DSA, PKA_MAP[DSA]),
+        (ECDH, PKA_MAP[ECDH]),
+        (ECDSA, PKA_MAP[ECDSA]),
+        (ELGAMAL_ENC_SIGN, PKA_MAP[ELGAMAL_ENC_SIGN]),
+        (DH, PKA_MAP[DH]),
+    ))
+    hash = models.IntegerField(default=0, choices=(
+        (UNKNOWN, HASH_MAP[UNKNOWN]),
+        (MD5, HASH_MAP[MD5]),
+        (SHA1, HASH_MAP[SHA1]),
+        (RIPEMD160, HASH_MAP[RIPEMD160]),
+        (RESERVED4, HASH_MAP[RESERVED4]),
+        (RESERVED5, HASH_MAP[RESERVED5]),
+        (RESERVED6, HASH_MAP[RESERVED6]),
+        (RESERVED7, HASH_MAP[RESERVED7]),
+        (SHA256, HASH_MAP[SHA256]),
+        (SHA384, HASH_MAP[SHA384]),
+        (SHA512, HASH_MAP[SHA512]),
+        (SHA224, HASH_MAP[SHA224]),
+    ))
+    creation_time = models.DateTimeField()
+    expiration_time = models.DateTimeField(null=True)
+    keyid = models.CharField(max_length=16)
+
+    def type_str(self):
+        return unicode(self.SIG_MAP[self.type])
+
+    def pka_str(self):
+        return unicode(self.PKA_MAP[self.pka])
+
+    def simple_pka_str(self):
+        return unicode(self.SIMPLE_PKA_MAP[self.pka])
+
+    def hash_str(self):
+        return unicode(self.HASH_MAP[self.hash])
+
+    def is_signature(self):
+        return True
 

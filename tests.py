@@ -1,4 +1,7 @@
+from django.core.urlresolvers import reverse
 from django.test import TestCase
+from django.test.client import Client, RequestFactory
+from django.utils.translation import ugettext_lazy as _
 
 import models
 
@@ -219,29 +222,208 @@ class PGPKeyModelTest(TestCase):
 
         self.BOB.delete()
 
-    def test_userid(self):
-        self.assertEqual(self.ALICE.userids.count(), 1)
-        userid = self.ALICE.userids.all()[0]
-        self.assertEqual(userid.userid, 'alice (test key) <alice@example.com>')
-
     def test_publickey(self):
         self.assertEqual(self.ALICE.public_keys.count(), 2)
         keys = self.ALICE.public_keys.all()
         sign = keys[0]
         enc = keys[1]
+        self.assertTrue(sign.is_public_key())
+        self.assertFalse(sign.is_userid())
+        self.assertFalse(sign.is_signature())
+        self.assertEqual(sign.index, 1)
+        self.assertEqual(sign.key, self.ALICE)
         self.assertEqual(sign.is_sub, False)
         creation_time = sign.creation_time.strftime('%Y-%m-%dT%H:%M:%S')
         self.assertEqual(creation_time, '2014-06-22T12:50:48')
         self.assertEqual(sign.expiration_time, None)
         self.assertEqual(sign.algorithm, 1)  # RSA_ENC_SIGN
+        self.assertEqual(sign.bits, 2048)
         self.assertEqual(sign.fingerprint, '4b3292e956b577ad703443f4d5d7da71c354960e')
         self.assertEqual(sign.keyid, 'd5d7da71c354960e')
 
+        self.assertTrue(enc.is_public_key())
+        self.assertFalse(enc.is_userid())
+        self.assertFalse(enc.is_signature())
+        self.assertEqual(enc.index, 4)
+        self.assertEqual(enc.key, self.ALICE)
         self.assertEqual(enc.is_sub, True)
         creation_time = enc.creation_time.strftime('%Y-%m-%dT%H:%M:%S')
         self.assertEqual(creation_time, '2014-06-22T12:50:48')
         self.assertEqual(enc.expiration_time, None)
         self.assertEqual(enc.algorithm, 1)  # RSA_ENC_SIGN
+        self.assertEqual(enc.bits, 2048)
         self.assertEqual(enc.fingerprint, '089d58a247da0553a46ff04c9f0ff40fd27061e1')
         self.assertEqual(enc.keyid, '9f0ff40fd27061e1')
+
+    def test_userid(self):
+        self.assertEqual(self.ALICE.userids.count(), 1)
+        userid = self.ALICE.userids.all()[0]
+        self.assertFalse(userid.is_public_key())
+        self.assertTrue(userid.is_userid())
+        self.assertFalse(userid.is_signature())
+        self.assertEqual(userid.index, 2)
+        self.assertEqual(userid.key, self.ALICE)
+        self.assertEqual(userid.userid, 'alice (test key) <alice@example.com>')
+
+    def test_signature(self):
+        keys = self.ALICE.public_keys.all()
+        pkey = keys[0]
+        skey = keys[1]
+        userid = self.ALICE.userids.all()[0]
+
+        self.assertEqual(self.ALICE.signatures.count(), 2)
+        sigs = self.ALICE.signatures.all()
+        pub = sigs[0]
+        sub = sigs[1]
+        self.assertFalse(pub.is_public_key())
+        self.assertFalse(pub.is_userid())
+        self.assertTrue(pub.is_signature())
+        self.assertEqual(pub.index, 3)
+        self.assertEqual(pub.key, self.ALICE)
+        self.assertEqual(pub.pkey, pkey)
+        self.assertEqual(pub.userid, userid)
+        self.assertEqual(pub.type, 0x13)  # Positive key sign
+        self.assertEqual(pub.pka, 1)
+        self.assertEqual(pub.hash, 2)
+        creation_time = pub.creation_time.strftime('%Y-%m-%dT%H:%M:%S')
+        self.assertEqual(creation_time, '2014-06-22T12:50:48')
+        self.assertEqual(pub.expiration_time, None)
+        self.assertEqual(pub.keyid, 'd5d7da71c354960e')
+
+        self.assertFalse(sub.is_public_key())
+        self.assertFalse(sub.is_userid())
+        self.assertTrue(sub.is_signature())
+        self.assertEqual(sub.index, 5)
+        self.assertEqual(sub.key, self.ALICE)
+        self.assertEqual(sub.pkey, skey)
+        self.assertEqual(sub.userid, userid)
+        self.assertEqual(sub.type, 0x18)  # Subkey binding sign
+        self.assertEqual(sub.pka, 1)
+        self.assertEqual(sub.hash, 2)
+        creation_time = sub.creation_time.strftime('%Y-%m-%dT%H:%M:%S')
+        self.assertEqual(creation_time, '2014-06-22T12:50:48')
+        self.assertEqual(sub.expiration_time, None)
+        self.assertEqual(sub.keyid, 'd5d7da71c354960e')
+
+    def test_first(self):
+        first = self.ALICE.first()
+        self.assertEqual(sorted(first.keys()), ['public_key', 'userid'])
+        self.assertEqual(first['public_key'], self.ALICE.public_keys.first())
+        self.assertEqual(first['userid'], self.ALICE.userids.first())
+
+    def test_packets(self):
+        packets = self.ALICE.packets()
+        index = [x.index for x in packets]
+        self.assertEqual(index, [1, 2, 3, 4, 5])
+
+    def test_data(self):
+        data = self.ALICE.data()
+        start = GPG_ALICE_KEY.index('-----BEGIN PGP PUBLIC KEY BLOCK-----')
+        GPG_KEY = GPG_ALICE_KEY[start:-1]
+        PGPDB_KEY = GPG_KEY.replace('Version: GnuPG v1', 'Version: django-pgpdb v1')
+        self.assertEqual(data, PGPDB_KEY)
+
+    def test_algorithm_str(self):
+        first = self.ALICE.public_keys.first()
+        algorithm_str = first.algorithm_str()
+        PKA_MAP = models.PGPPublicKeyModel.PKA_MAP
+        rsa_enc_sign = PKA_MAP[models.PGPPublicKeyModel.RSA_ENC_SIGN]
+        self.assertEqual(algorithm_str, unicode(rsa_enc_sign))
+
+    def test_simple_algorithm_str(self):
+        first = self.ALICE.public_keys.first()
+        simple_str = first.simple_algorithm_str()
+        SIMPLE_PKA_MAP = models.PGPPublicKeyModel.SIMPLE_PKA_MAP
+        simple_rsa = SIMPLE_PKA_MAP[models.PGPPublicKeyModel.RSA_ENC_SIGN]
+        self.assertEqual(simple_str, unicode(simple_rsa))
+
+    def test_type_str(self):
+        first = self.ALICE.signatures.first()
+        type_str = first.type_str()
+        SIG_MAP = models.PGPSignatureModel.SIG_MAP
+        key_positive = SIG_MAP[models.PGPSignatureModel.KEY_POSITIVE]
+        self.assertEqual(type_str, unicode(key_positive))
+
+    def test_pka_str(self):
+        first = self.ALICE.signatures.first()
+        pka_str = first.pka_str()
+        PKA_MAP = models.PGPSignatureModel.PKA_MAP
+        rsa_enc_sign = PKA_MAP[models.PGPSignatureModel.RSA_ENC_SIGN]
+        self.assertEqual(pka_str, unicode(rsa_enc_sign))
+
+    def test_simple_pka_str(self):
+        first = self.ALICE.signatures.first()
+        simple_pka_str = first.simple_pka_str()
+        SIMPLE_PKA_MAP = models.PGPSignatureModel.SIMPLE_PKA_MAP
+        simple_rsa = SIMPLE_PKA_MAP[models.PGPSignatureModel.RSA_ENC_SIGN]
+        self.assertEqual(simple_pka_str, unicode(simple_rsa))
+
+    def test_hash_str(self):
+        first = self.ALICE.signatures.first()
+        hash_str = first.hash_str()
+        HASH_MAP = models.PGPSignatureModel.HASH_MAP
+        sha1 = HASH_MAP[models.PGPSignatureModel.SHA1]
+        self.assertEqual(hash_str, unicode(sha1))
+
+class PGPDBViewTest(TestCase):
+    def setUp(self):
+        self.CLIENT = Client()
+
+    def test_index(self):
+        uri = reverse('pgpdb.views.index')
+        resp = self.CLIENT.get(uri)
+        self.assertTemplateUsed(resp, 'pgpdb/index.html')
+
+    def test_add(self):
+        uri = reverse('pgpdb.views.add')
+
+        data = {
+            'keytext': GPG_ALICE_KEY,
+        }
+        resp = self.CLIENT.post(uri, data=data)
+        self.assertTemplateUsed(resp, 'pgpdb/added.html')
+
+        # invalid post
+        data = {
+            'keytext': 'INVALID_POST',
+        }
+        resp = self.CLIENT.post(uri, data=data)
+        self.assertTemplateUsed(resp, 'pgpdb/add_invalid_post.html')
+
+        # GET method
+        resp = self.CLIENT.get(uri)
+        self.assertTemplateUsed(resp, 'pgpdb/add_method_not_allowed.html')
+
+    def test_lookup(self):
+        uri = reverse('pgpdb.views.lookup')
+
+        data = {
+            'op': 'index',
+            'search': '0xd5d7da71c354960e',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertTemplateUsed(resp, 'pgpdb/lookup_not_found.html')
+
+        models.PGPKeyModel.objects.save_to_storage(None, GPG_ALICE_KEY)
+
+        data = {
+            'op': 'index',
+            'search': '0xd5d7da71c354960e',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertTemplateUsed(resp, 'pgpdb/lookup_index.html')
+
+        data = {
+            'op': 'vindex',
+            'search': '0xd5d7da71c354960e',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertTemplateUsed(resp, 'pgpdb/lookup_vindex.html')
+
+        data = {
+            'op': 'get',
+            'search': '0xd5d7da71c354960e',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertTemplateUsed(resp, 'pgpdb/lookup_get.html')
 

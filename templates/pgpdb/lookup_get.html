@@ -1,0 +1,16 @@
+{% extends "pgpdb/base.html" %}
+
+{% load i18n %}
+
+{% block page_title %}{% blocktrans with keyid=key.first.public_key.keyid %}Public Key Server -- Get ``{{ keyid }}''{% endblocktrans %}{% endblock %}
+{% block page_header %}{% endblock %}
+{% block page_content %}
+  <div class="container">
+   <div>
+    <h1>{% blocktrans with keyid=key.first.public_key.keyid %}Public Key Server -- Get ``{{ keyid }}''{% endblocktrans %}</h1>
+    <hr/>
+<pre>
+{{ key.data }}
+</pre>
+   </div>
+  </div>{% endblock %}

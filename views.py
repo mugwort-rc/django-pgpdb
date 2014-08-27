@@ -1,4 +1,6 @@
-from django.http import HttpResponseNotAllowed, HttpResponseBadRequest
+from django.http import (
+    HttpResponseNotAllowed, HttpResponseBadRequest, HttpResponseNotFound
+)
 from django.shortcuts import render, render_to_response
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.csrf import csrf_exempt
@@ -14,6 +16,7 @@ import forms, models
 def index(request):
     c = {
         'add_form': forms.KeyServerAddForm(),
+        'lookup_form': forms.KeyServerLookupForm(),
     }
     return render_to_response('pgpdb/index.html', c)
 
@@ -44,7 +47,63 @@ def add(request):
         return HttpResponseBadRequest(content)
     return render_to_response('pgpdb/added.html', c)
 
+def lookup(request):
+    form = forms.KeyServerLookupForm(request.GET)
+    try:
+        if not form.is_valid():
+            raise __LookupException
+        search = form.cleaned_data['search']
+        keys = None
+        if search.startswith('0x'):
+            search_ = search[2:].lower()
+            query = {}
+            if len(search_) in [32, 40]:
+                # v3 or v4 fingerprint
+                query = {
+                    'public_keys__fingerprint__exact': search_,
+                }
+            elif len(search_) in [8, 16]:
+                # 32bit or 64bit keyid
+                query = {
+                    'public_keys__keyid__exact': search_,
+                }
+            else:
+                raise __LookupException
+            keys = models.PGPKeyModel.objects.filter(**query)
+        else:
+            query = {
+                'userids__userid__icontains': search,
+            }
+            keys = models.PGPKeyModel.objects.filter(**query)
+        # display by op
+        op = form.cleaned_data['op'].lower()
+        op = op if op else 'index'
+        if op == 'get':
+            if keys.count() != 1:
+                raise __LookupException
+            c = {
+                'key': keys[0],
+            }
+            return render_to_response('pgpdb/lookup_get.html', c)
+        elif op in ['index', 'vindex']:
+            if keys.count() == 0:
+                raise __LookupException
+            c = {
+                'keys': keys,
+                'search': search,
+            }
+            if op == 'index':
+                return render_to_response('pgpdb/lookup_index.html', c)
+            else:
+                return render_to_response('pgpdb/lookup_vindex.html', c)
+    except __LookupException:
+        content = render(request, 'pgpdb/lookup_not_found.html')
+        return HttpResponseNotFound(content)
+
 class __AddException(Exception):
+    pass
+
+class __LookupException(Exception):
     pass
 
 def _is_valid_packets(pgp):

@@ -9,6 +9,15 @@
   <div class="container">
    <h1>{% blocktrans %}OpenPGP Public Key Server{% endblocktrans %}</h1>
    <hr/>
+   <h2>{% blocktrans %}Extract an OpenPGP Key{% endblocktrans %}</h2>
+   <form action="lookup" class="form-horizontal" method="get">
+    {% bootstrap_form lookup_form layout="horizontal" %}
+    <div class="form-group">
+     <input class="btn btn-danger" type="reset" value="{% trans 'Reset' %}"/>
+     <input class="btn btn-primary" type="submit" value="{% trans 'Search' %}"/>
+    </div>
+   </form>
+   <hr/>
    <h2>{% blocktrans %}Submit a new OpenPGP Key{% endblocktrans %}</h2>
    <p>{% blocktrans %}Enter ASCII-armored OpenPGP key here:{% endblocktrans %}</p>
    <form action="add" method="post">
