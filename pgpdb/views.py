@@ -1,4 +1,5 @@
-import time
+import calendar
+import datetime
 import urllib
 
 from django.http import (
@@ -208,11 +209,11 @@ def _build_machine_readable_indexes(keys):
         keyid = first.keyid
         algo = str(first.algorithm)
         keylen = str(first.bits)
-        creation_unix = int(time.mktime(first.creation_time.timetuple()))
+        creation_unix = int(calendar.timegm(first.creation_time.timetuple()))
         creationdate = str(creation_unix)
         expirationdate = ''
         if first.expiration_time:
-            expiration_unix = int(time.mktime(first.expiration_time.timetuple()))
+            expiration_unix = int(calendar.timegm(first.expiration_time.timetuple()))
             expirationdate = str(expiration_unix)
         flags = ''
         if key.is_revoked:
@@ -233,11 +234,11 @@ def _build_machine_readable_indexes(keys):
         for uid in key.userids.all():
             escaped_uid = urllib.quote(uid.userid, _SAFE_7BIT)
             sig = uid.signatures.filter(keyid=keyid).first()
-            creation_unix = int(time.mktime(sig.creation_time.timetuple()))
+            creation_unix = int(calendar.timegm(sig.creation_time.timetuple()))
             creationdate = str(creation_unix)
             expirationdate = ''
             if sig.expiration_time:
-                expiration_unix = int(time.mktime(sig.expiration_time.timetuple()))
+                expiration_unix = int(calendar.timegm(sig.expiration_time.timetuple()))
                 expirationdate = str(expiration_unix)
             flags = ''
             if expirationdate and first.expiration_time < datetime.datetime.utcnow():
