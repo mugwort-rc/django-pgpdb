@@ -1,4 +1,8 @@
+import time
+import urllib
+
 from django.http import (
+    HttpResponse,
     HttpResponseNotAllowed, HttpResponseBadRequest, HttpResponseNotFound
 )
 from django.shortcuts import render, render_to_response
@@ -11,7 +15,7 @@ from pgpdump.packet import (
     UserAttributePacket
 )
 
-import forms, models
+import forms, models, utils
 
 def index(request):
     c = {
@@ -75,27 +79,45 @@ def lookup(request):
                 'userids__userid__icontains': search,
             }
             keys = models.PGPKeyModel.objects.filter(**query)
+        if keys.count() == 0:
+            raise __LookupException
         # display by op
         op = form.cleaned_data['op'].lower()
-        op = op if op else 'index'
-        if op == 'get':
-            if keys.count() != 1:
-                raise __LookupException
-            c = {
-                'key': keys[0],
-            }
-            return render_to_response('pgpdb/lookup_get.html', c)
-        elif op in ['index', 'vindex']:
-            if keys.count() == 0:
-                raise __LookupException
-            c = {
-                'keys': keys,
-                'search': search,
-            }
-            if op == 'index':
-                return render_to_response('pgpdb/lookup_index.html', c)
+        options_str = form.cleaned_data['options'].lower()
+        options = [x.strip() for x in options_str.split(',')]
+        if 'mr' in options:
+            # machine readable response
+            if op == 'get':
+                resp = HttpResponse(
+                    _keys_ascii_armor(keys),
+                    content_type='application/pgp-keys'  # RFC-3156
+                )
+                resp['Content-Disposition'] = 'attachment; filename="pgpkey.asc"'
+                return resp
             else:
-                return render_to_response('pgpdb/lookup_vindex.html', c)
+                resp = HttpResponse(
+                    _build_machine_readable_indexes(keys),
+                    content_type='text/plain'
+                )
+                return resp
+        else:
+            # html response
+            op = op if op else 'index'
+            if op == 'get':
+                c = {
+                    'key': _keys_ascii_armor(keys),
+                    'search': search,
+                }
+                return render_to_response('pgpdb/lookup_get.html', c)
+            elif op in ['index', 'vindex']:
+                c = {
+                    'keys': keys,
+                    'search': search,
+                }
+                if op == 'index':
+                    return render_to_response('pgpdb/lookup_index.html', c)
+                else:
+                    return render_to_response('pgpdb/lookup_vindex.html', c)
     except __LookupException:
         content = render(request, 'pgpdb/lookup_not_found.html')
         return HttpResponseNotFound(content)
@@ -105,6 +127,8 @@ class __AddException(Exception):
 
 class __LookupException(Exception):
     pass
+
+_SAFE_7BIT = r' !"#$%&\'()*+,-./;<=>?@[\\]^_`{|}~'
 
 def _is_valid_packets(pgp):
     pubkey = 0  # (1 <= pubkey) / One Public-Key packet
@@ -165,4 +189,65 @@ def _is_valid_packets(pgp):
             else:
                 other += 1
     return other == 0
+
+def _keys_ascii_armor(keys):
+    if keys.count() == 1:
+        return keys[0].ascii_armor()
+    else:
+        data = ''
+        for key in keys:
+            data += key.read()
+        return utils.encode_ascii_armor(data)
+
+def _build_machine_readable_indexes(keys):
+    result = []
+    result.append(['info', '1', str(keys.count())])
+    for key in keys:
+        # pub
+        first = key.public_keys.first()
+        keyid = first.keyid
+        algo = str(first.algorithm)
+        keylen = str(first.bits)
+        creation_unix = int(time.mktime(first.creation_time.timetuple()))
+        creationdate = str(creation_unix)
+        expirationdate = ''
+        if first.expiration_time:
+            expiration_unix = int(time.mktime(first.expiration_time.timetuple()))
+            expirationdate = str(expiration_unix)
+        flags = ''
+        if key.is_revoked:
+            flags += 'r'
+        if expirationdate and first.expiration_time < datetime.datetime.utcnow():
+            flags += 'e'
+        result.append([
+            'pub',
+            keyid,
+            algo,
+            keylen,
+            creationdate,
+            expirationdate,
+            flags
+        ])
+
+        # uid
+        for uid in key.userids.all():
+            escaped_uid = urllib.quote(uid.userid, _SAFE_7BIT)
+            sig = uid.signatures.filter(keyid=keyid).first()
+            creation_unix = int(time.mktime(sig.creation_time.timetuple()))
+            creationdate = str(creation_unix)
+            expirationdate = ''
+            if sig.expiration_time:
+                expiration_unix = int(time.mktime(sig.expiration_time.timetuple()))
+                expirationdate = str(expiration_unix)
+            flags = ''
+            if expirationdate and first.expiration_time < datetime.datetime.utcnow():
+                flags += 'e'
+            result.append([
+                'uid',
+                escaped_uid,
+                creationdate,
+                expirationdate,
+                flags
+            ])
+    return '\n'.join([':'.join(x) for x in result])
 

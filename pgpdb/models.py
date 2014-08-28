@@ -22,17 +22,7 @@ from pgpdump.utils import crc24, PgpdumpException
 
 from django_extensions.db.fields import UUIDField
 
-PGP_ARMOR_BASE = '''-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: django-pgpdb v1
-
-{0}
-={1}
------END PGP PUBLIC KEY BLOCK-----'''
-
-def encode_armor(data, crc24):
-    data = base64.b64encode(data)
-    data = '\n'.join(data[i:i+64] for i in range(0, len(data), 64))
-    return PGP_ARMOR_BASE.format(data, crc24)
+import utils
 
 def register_file(path, data):
     return default_storage.save(path, ContentFile(data))
@@ -167,7 +157,7 @@ class PGPKeyModel(models.Model):
     file = models.FileField(upload_to=_pgp_key_model_upload_to,
         storage=default_storage)
     crc24 = models.CharField(max_length=4)  # =([A-Za-z0-9+/]{4})
-    is_compromised = models.BooleanField(default=False)
+    is_revoked = models.BooleanField(default=False)
 
     objects = PGPKeyModelManager()
 
@@ -184,9 +174,12 @@ class PGPKeyModel(models.Model):
         result += [x for x in self.signatures.all()]
         return sorted(result, key=lambda x: x.index)
 
-    def data(self):
-        data = read_file(self.file)
-        return encode_armor(data, self.crc24)
+    def ascii_armor(self):
+        data = self.read()
+        return utils.encode_ascii_armor(data, self.crc24)
+
+    def read(self):
+        return read_file(self.file)
 
 class PGPPacketModel(models.Model):
     index = models.IntegerField()

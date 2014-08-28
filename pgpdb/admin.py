@@ -4,9 +4,9 @@ import forms
 import models
 
 class PGPKeyModelAdmin(admin.ModelAdmin):
-    list_display = ('uid', 'user', 'user_ids', 'key_id', 'is_compromised', 'crc24', 'file',)
+    list_display = ('uid', 'user', 'user_ids', 'key_id', 'is_revoked', 'crc24', 'file',)
     exclude = ('uid', 'crc24',)
-    list_filter = ('is_compromised',)
+    list_filter = ('is_revoked',)
     search_fields = ('uid', 'userids__userid', 'public_keys__keyid',)
 
     def user_ids(self, obj):

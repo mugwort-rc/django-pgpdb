@@ -5,6 +5,8 @@ from django.utils.translation import ugettext_lazy as _
 
 import models
 
+import pgpdb
+
 GPG_ALICE_KEY = """
 Old: Public Key Packet(tag 6)(269 bytes)
 	Ver 4 - new
@@ -201,6 +203,103 @@ GeykHHGfctbPAwE/06+sspYamO7XjhmPcbdXd+fX9w==
 -----END PGP PUBLIC KEY BLOCK-----
 """
 
+PGPDB_ALICE_KEY = '''-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: django-pgpdb {0}
+
+mQENBFOm0SgBCAC8BH6U1HHzzL1SXWpvjhf3sfAFJ8ciw5E854f70AkOOvi+fllB
+D2OzmDqVB7dhBFwRUQ5i9ajPvNwYCXakwiVze44G2FMfOMbqqZaVTVUhpnYyMfB8
+K0NgXQUqvfOdbGaKyUvIn1QwUtBQUwxwxIpJqXCGfAAXj5B23Q4VHSVGMnZ7KSbp
+uqIsbQwhPx9F3nSZE5bX6NEFCM9nkTlBCrMRsSed08DTf6zKVNUjzRSj30iOuPWS
+xaGbz+3mfIFwgVxYit850YgZfaQEkqrFsYPDA/bvI7C15I/3Oy2AavsPtPFroydp
+JJ06fKDvC5s9V4Utyal5ttVvPcFw4o3LLlNtABEBAAG0JGFsaWNlICh0ZXN0IGtl
+eSkgPGFsaWNlQGV4YW1wbGUuY29tPokBOAQTAQIAIgUCU6bRKAIbAwYLCQgHAwIG
+FQgCCQoLBBYCAwECHgECF4AACgkQ1dfaccNUlg4EXgf/aIoYolj4Zs9Q8ck43BWx
+EpjaC/vWgCQfUlRa9QI3IoWM37V52iLmba423/moF/eXGS6VtwdLq0k4GsuDfxIW
+1Ojjwt4vtVR6UVtSNoI7y0s7yhpoRV+phMTcIbGlryMIrqWAwK4so/XbNDvqpVlS
+RwLQnkDRkjMU7w8VZGrOyRucbZy6nZuH+nhialIq4VIPCu02HfAPgZGp7LH7EnMu
+n25eHEvs45fk3Pus1BkYiCwt+nW5i1RYfwzWEZW9zkG2kDKadGxuN7fi75sGIGvy
+gP+T7AuJGSl5BJKplxrKqefhQVhcpBgA3UYrb4I1wPHgtpGlBU2o+QKV9ZSeIvte
+XLkBDQRTptEoAQgA2YqsTj9JniJkrr1x6g59io1GkP9z0JElzRl4kvG7WUkrhSPc
+XkoLngcCur9lpxET2Wp7ou43zcKuiwsDxnsWwSvWfmg15N4BzYS6ulP7PSIpQlLb
+srqFTR/iX0c7asgUE5Jpe8YEnThl2aAPkJlx47GQN1jhGxOkZhz3kIC+rG2d25ET
+36eI0vw4oHO40nF9DihyHzfcD3tuuaOJ+AUPrDh7o97a8yIQmVU031GImC1DHQ9t
+k9qkixCuejN1cfi7zqWclnd4nu3C/PJXLz0qzprhK0gXqgjZVBpCPQ5g/WV/Myw/
+5H7vJC5WcV0lQilxtjgaHmpSu65XTaAHf4OlNQARAQABiQEfBBgBAgAJBQJTptEo
+AhsMAAoJENXX2nHDVJYOmusH/0VDpB6353RsZzCj+eoV9mpew8gPo7jdwMGFVW3r
+7ZfwCCE+9hMqQAPU4ewTtpy9SrzynZCG02vycaBhLJwcP1dKtvae1y8B8zh7zo9F
+eLTUewHuyFRpyM5/fj1Dou89AOvDRaiJPaO3RQOmjGG9+D5hDS03CHBXOg/P0gYv
+lc1myZNfRtU5+ezMEWA+tqyjyjj3W6nyobtpVtwgpA/od47/UcdGqSkzkmr+zqqH
+amPMgSaahcvqPw2VFt4fi00ShN9EguwiV2vJes6VvDq1qE5Ap/zWBn/B7xIc70jD
+hHtoB2/2gM/blPn5EPrIht6Kh9njBFYVk+OrV96NpJl08lM=
+=xJuO
+-----END PGP PUBLIC KEY BLOCK-----'''.format(pgpdb.__version__)
+
+PGPDB_MULTI_KEY = '''-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: django-pgpdb {0}
+
+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
+r6yylhqY7teOGY9xt1d359f3
+=Nkr1
+-----END PGP PUBLIC KEY BLOCK-----'''.format(pgpdb.__version__)
+
+MACHINE_READABLE_INDEX1 = '''info:1:1
+pub:d5d7da71c354960e:1:2048:1403441448::
+uid:alice (test key) <alice@example.com>:1403441448::'''
+
+MACHINE_READABLE_INDEX2 = '''info:1:2
+pub:d5d7da71c354960e:1:2048:1403441448::
+uid:alice (test key) <alice@example.com>:1403441448::
+pub:3c8f7607ca580f9e:1:2048:1403441743::
+uid:bob (test key) <bob@example.com>:1403441743::'''
+
 class PGPKeyModelTest(TestCase):
     def setUp(self):
         self.ALICE = models.PGPKeyModel.objects.save_to_storage(None, GPG_ALICE_KEY)
@@ -217,8 +316,8 @@ class PGPKeyModelTest(TestCase):
         self.assertEqual(self.BOB.user, None)
         self.assertEqual(self.ALICE.crc24, 'xJuO')
         self.assertEqual(self.BOB.crc24, 'AXuc')
-        self.assertEqual(self.ALICE.is_compromised, False)
-        self.assertEqual(self.BOB.is_compromised, False)
+        self.assertEqual(self.ALICE.is_revoked, False)
+        self.assertEqual(self.BOB.is_revoked, False)
 
         self.BOB.delete()
 
@@ -316,12 +415,9 @@ class PGPKeyModelTest(TestCase):
         index = [x.index for x in packets]
         self.assertEqual(index, [1, 2, 3, 4, 5])
 
-    def test_data(self):
-        data = self.ALICE.data()
-        start = GPG_ALICE_KEY.index('-----BEGIN PGP PUBLIC KEY BLOCK-----')
-        GPG_KEY = GPG_ALICE_KEY[start:-1]
-        PGPDB_KEY = GPG_KEY.replace('Version: GnuPG v1', 'Version: django-pgpdb v1')
-        self.assertEqual(data, PGPDB_KEY)
+    def test_ascii_armor(self):
+        data = self.ALICE.ascii_armor()
+        self.assertEqual(data, PGPDB_ALICE_KEY)
 
     def test_algorithm_str(self):
         first = self.ALICE.public_keys.first()
@@ -426,4 +522,55 @@ class PGPDBViewTest(TestCase):
         }
         resp = self.CLIENT.get(uri, data=data)
         self.assertTemplateUsed(resp, 'pgpdb/lookup_get.html')
+
+    def test_lookup_mr(self):
+        uri = reverse('pgpdb.views.lookup')
+
+        data = {
+            'op': 'index',
+            'options': 'mr',
+            'search': '0xd5d7da71c354960e',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertEqual(resp.status_code, 404)
+
+        models.PGPKeyModel.objects.save_to_storage(None, GPG_ALICE_KEY)
+
+        data = {
+            'op': 'index',
+            'options': 'mr',
+            'search': '0xd5d7da71c354960e',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertEqual(resp['Content-Type'], 'text/plain')
+        self.assertEqual(resp.content, MACHINE_READABLE_INDEX1)
+
+        data = {
+            'op': 'get',
+            'options': 'mr',
+            'search': '0xd5d7da71c354960e',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertEqual(resp['Content-Type'], 'application/pgp-keys')
+        self.assertEqual(resp.content, PGPDB_ALICE_KEY)
+
+        models.PGPKeyModel.objects.save_to_storage(None, GPG_BOB_KEY)
+
+        data = {
+            'op': 'index',
+            'options': 'mr',
+            'search': 'example',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertEqual(resp['Content-Type'], 'text/plain')
+        self.assertEqual(resp.content, MACHINE_READABLE_INDEX2)
+
+        data = {
+            'op': 'get',
+            'options': 'mr',
+            'search': 'example',
+        }
+        resp = self.CLIENT.get(uri, data=data)
+        self.assertEqual(resp['Content-Type'], 'application/pgp-keys')
+        self.assertEqual(resp.content, PGPDB_MULTI_KEY)
 
