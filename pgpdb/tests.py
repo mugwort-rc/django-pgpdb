@@ -234,6 +234,37 @@ hHtoB2/2gM/blPn5EPrIht6Kh9njBFYVk+OrV96NpJl08lM=
 =xJuO
 -----END PGP PUBLIC KEY BLOCK-----'''.format(pgpdb.__version__)
 
+PGPDB_BOB_KEY = '''-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: django-pgpdb {0}
+
+mQENBFOm0k8BCAC1r3JzpCyUjSIMyDm35lOJItSe5hLK7aIHxscs5oxmQiLpR80d
+6pisPWiwA9gMDs700LpE+m/QtR4y17MlNU2S1i1RLlt118SEnwD+g/fTBZrCOmuy
+FWLizoRhtlLcu3ir4j47APfu1I3De5x3t1TeBuSY41rSkxXlZ8G9hlu2xAO6MmCE
+fJpNc/tHt9cTXTMGKapVJK/F9dQZ+T2NgPf0nyr5EIfpx+GckZlx3qFT+SleN/UY
+ETk2LL6ElpwARVmcyDv3J9BuLekA0aQSR9GqmDpQmMFBoXds69pBhWtXu228puop
+8LSwO7ZF6c/flTp8xniRlpIEejk4WchhSYdlABEBAAG0IGJvYiAodGVzdCBrZXkp
+IDxib2JAZXhhbXBsZS5jb20+iQE4BBMBAgAiBQJTptJPAhsDBgsJCAcDAgYVCAIJ
+CgsEFgIDAQIeAQIXgAAKCRA8j3YHylgPnl5wCACvW5ihaa9Ovmh8hnpBzOdD9A0V
+kTdXwHU0E2G4O0+jLxnbpP8s9apw8aYuOS7IlNBA0qoaCDQUU1XEs/TyZJNwVZww
+FqwBSiAlxPR0ZBAVLGmuRPC/pA1LgFKEf95A3VKlqcOuFmBnA+o4FqUTHQ+hsXDs
+icNflufWU/p0kAhP+8gAkrYdO2RTYqO9+qRFULb/U5/NX2iIIo+w7v8k3dVzDKD6
+SQJ8IksFJ7iJb90zPu14xlWOHYZl9SPvD/hM+XwRdDRwnF2W1O1QT0+RZlbhZdB5
+6opzVyonaVwSZ6X4wtIy9nhBVjHv9xaQKh7bYCtk9RAauDZ10R72KANdeoaQuQEN
+BFOm0k8BCAC0xTBFoQ467Q0ye2tNQ1rUJ7xn6sQ03kiTUr7U+NLvJzKF2B6odGNA
+Y+wBFAvkYDZ+AgzhfyWos3x+VuYulctPXR8KMUdbE4euoP+wu/jmXr5PocmxNQgg
+92iHQ5hzxJXnBoDPAMSYl3Cux19+/jGoc44LgJP9Xm7gBwo7keq0+NhGlbCgGKKl
+DxBr/Jqb87pa9Y+WBXN1LL1h8sLabAN6kEMx1GiAq3G8L9HEEAnOkXgn4vnQp+7s
+KrSqxKEbqw28vB9FjPcC3ISzM5R/fGb1hanD/YAA5VEbZriUL9OnLN2AxNzfWQPI
+1G3K1LcDGcrBo9FG8G0plulm93dorvvlABEBAAGJAR8EGAECAAkFAlOm0k8CGwwA
+CgkQPI92B8pYD56oYAf+POvglwkna4396mqIAhhq7nozSbF26fX8fT3r7r2Hge+m
+OgJZjLLVTKVtuUx1bb1SPaKdd+TW5A8xM1Nnjg1xB6WPaa3XXKkkd8Ty4kvrUqUk
+yevXl0R/cBscnO04WeUic5ErHUaAo9NZH2smPaOcwW7zvIiYm8R6orb/zeXJqltn
+2sVHuFNYjgcC8OxcreS5SQu/l6kfybRCKmdC7UaPfNNbesH+IuTwuLv5rQh125l2
+Mpga1NHRG7vfaqDSp41mOel/Y1MbFgcFcs3Q274Olr9hxHeMIJAYow+RAOhgYXjQ
+GeykHHGfctbPAwE/06+sspYamO7XjhmPcbdXd+fX9w==
+=AXuc
+-----END PGP PUBLIC KEY BLOCK-----'''.format(pgpdb.__version__)
+
 PGPDB_MULTI_KEY = '''-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: django-pgpdb {0}
 
@@ -489,6 +520,23 @@ class PGPDBViewTest(TestCase):
         # GET method
         resp = self.CLIENT.get(uri)
         self.assertTemplateUsed(resp, 'pgpdb/add_method_not_allowed.html')
+
+    def test_add_multi(self):
+        uri = reverse('pgpdb.views.add')
+
+        self.assertEqual(models.PGPKeyModel.objects.all().count(), 0)
+
+        data = {
+            'keytext': PGPDB_MULTI_KEY,
+        }
+        resp = self.CLIENT.post(uri, data=data)
+        self.assertTemplateUsed(resp, 'pgpdb/added.html')
+
+        self.assertEqual(models.PGPKeyModel.objects.all().count(), 2)
+        first = models.PGPKeyModel.objects.all().first()
+        last = models.PGPKeyModel.objects.all().last()
+        self.assertEqual(first.ascii_armor(), PGPDB_ALICE_KEY)
+        self.assertEqual(last.ascii_armor(), PGPDB_BOB_KEY)
 
     def test_lookup(self):
         uri = reverse('pgpdb.views.lookup')
