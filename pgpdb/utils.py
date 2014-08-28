@@ -24,7 +24,7 @@ def encode_ascii_armor(data, crc=None):
         crc = crc24(bytearray(data))
         crc = ''.join([chr((crc >> i) & 0xff) for i in [16, 8, 0]])
         crc = base64.b64encode(crc)
-    data = base64.b64encode(data)
+    data = base64.b64encode(str(data))
     data = '\n'.join(data[i:i+64] for i in range(0, len(data), 64))
     return PGP_ARMOR_BASE.format(data, crc)
 
