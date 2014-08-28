@@ -78,7 +78,7 @@ for dirpath, dirnames, filenames in os.walk(pgpdb_dir):
         package_files.extend([os.path.join(path, f) for f in filenames])
 
 
-version = '0.1.0'
+version = __import__('pgpdb').__version__
 
 setup(
     name='django-pgpdb',
