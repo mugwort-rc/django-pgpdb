@@ -86,7 +86,7 @@ setup(
     description="PGP Key Server for Django",
     long_description="""""",
     author='mugwort_rc',
-    author_email='mugwort_rc at gmail dot com',
+    author_email='mugwort dot rc at gmail dot com',
     url='http://github.com/mugwort-rc/django-pgpdb',
     license='MIT License',
     platforms=['any'],
