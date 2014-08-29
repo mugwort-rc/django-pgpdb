@@ -32,16 +32,16 @@ def parse_public_key_packets(pgp):
     result = []
     tmp = []
     start = 0
+    next = 0
     for packet in pgp.packets():
         if ( tmp and
              isinstance(packet, PublicKeyPacket) and
              not isinstance(packet, PublicSubkeyPacket) ):
-            last = tmp[-1].data
-            next = pgp.data.index(last) + len(last)
             data = str(pgp.data)[start:next]
             start = next
             result.append((data, tmp))
             tmp = []
+        next = pgp.data.index(packet.data, next) + len(packet.data)
         tmp.append(packet)
     if tmp:
         data = pgp.data[start:]
