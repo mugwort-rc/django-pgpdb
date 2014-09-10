@@ -47,8 +47,6 @@ def main():
             django.setup()
 
         apps = ['pgpdb']
-        if django.VERSION[:2] >= (1, 6):
-            apps.append('pgpdb.tests')
 
         from django.core.management import call_command
         from django.test.utils import get_runner
