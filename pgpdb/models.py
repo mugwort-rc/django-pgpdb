@@ -22,19 +22,6 @@ from pgpdump.utils import crc24, PgpdumpException
 
 from . import utils
 
-def register_file(path, data):
-    return default_storage.save(path, ContentFile(data))
-
-def unregister_file(fp):
-    default_storage.delete(fp)
-
-def read_file(fp):
-    return default_storage.open(fp).read()
-
-def update_file(fp, data):
-    f = default_storage.open(fp, 'wb')
-    f.write(data)
-    f.close()
 
 class PGPKeyModelManager(models.Manager):
 
@@ -50,13 +37,13 @@ class PGPKeyModelManager(models.Manager):
 
     def post_save(self, sender, instance, created, **kwargs):
         if created:
-            data = read_file(instance.file)
+            data = instance.file.read()
             pgp = None
             try:
                 pgp = pgpdump.AsciiData(data)
             except PgpdumpException:
                 pgp = pgpdump.BinaryData(data)
-            update_file(instance.file, pgp.data)
+            instance.file.save(instance.file.name, ContentFile(pgp.data))
             crc = crc24(pgp.data)
             crc_bin = crc.to_bytes(3, "big")
             instance.crc24 = base64.b64encode(crc_bin).decode("utf-8")
@@ -129,12 +116,12 @@ class PGPKeyModelManager(models.Manager):
         """
             \sa: self.post_save()
         """
-        unregister_file(instance.file)
+        instance.file.delete(False)
 
     def save_to_storage(self, user, data):
         uid = str(uuid.uuid4())
         path = PGPKeyModelManager.PGP_KEY_STORAGE.format(uid[:2], uid[2:])
-        fp = register_file(path, data)
+        fp = default_storage.save(path, ContentFile(data))
         return self.create(uid=uid, user=user, file=fp)
 
 def _pgp_key_model_upload_to(instance, filename):
@@ -170,7 +157,7 @@ class PGPKeyModel(models.Model):
         return utils.encode_ascii_armor(data, self.crc24)
 
     def read(self):
-        return read_file(self.file)
+        return self.file.read()
 
 class PGPPacketModel(models.Model):
     index = models.IntegerField()
