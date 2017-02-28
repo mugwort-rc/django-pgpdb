@@ -18,7 +18,7 @@ urlpatterns = patterns('',
 
 ```
 python manage.py runserver
-gpg --keyserver hkp:localhost:8000 --send-keys 0123456789ABCDEX
+gpg --keyserver hkp://localhost:8000 --send-keys 0123456789ABCDEX
 ```
 
 ## Requirements
