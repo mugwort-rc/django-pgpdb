@@ -2,7 +2,7 @@ from django.http import (
     HttpResponse,
     HttpResponseNotAllowed, HttpResponseBadRequest, HttpResponseNotFound
 )
-from django.shortcuts import render, render_to_response
+from django.shortcuts import render
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.csrf import csrf_exempt
 
@@ -19,7 +19,7 @@ def index(request):
         'add_form': forms.KeyServerAddForm(),
         'lookup_form': forms.KeyServerLookupForm(),
     }
-    return render_to_response('pgpdb/index.html', c)
+    return render(request, 'pgpdb/index.html', c)
 
 @csrf_exempt
 def add(request):
@@ -54,7 +54,7 @@ def add(request):
     except __AddException:
         content = render(request, 'pgpdb/add_invalid_post.html')
         return HttpResponseBadRequest(content)
-    return render_to_response('pgpdb/added.html', c)
+    return render(request, 'pgpdb/added.html', c)
 
 def lookup(request):
     form = forms.KeyServerLookupForm(request.GET)
@@ -113,16 +113,16 @@ def lookup(request):
                     'key': utils.keys_ascii_armor(keys),
                     'search': search,
                 }
-                return render_to_response('pgpdb/lookup_get.html', c)
+                return render(request, 'pgpdb/lookup_get.html', c)
             elif op in ['index', 'vindex']:
                 c = {
                     'keys': keys,
                     'search': search,
                 }
                 if op == 'index':
-                    return render_to_response('pgpdb/lookup_index.html', c)
+                    return render(request, 'pgpdb/lookup_index.html', c)
                 else:
-                    return render_to_response('pgpdb/lookup_vindex.html', c)
+                    return render(request, 'pgpdb/lookup_vindex.html', c)
     except __LookupException:
         content = render(request, 'pgpdb/lookup_not_found.html')
         return HttpResponseNotFound(content)
