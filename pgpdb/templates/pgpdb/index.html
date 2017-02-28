@@ -1,17 +1,17 @@
 {% extends "pgpdb/base.html" %}
 
 {% load i18n %}
-{% load bootstrap3 %}
+{% load bootstrap %}
 
-{% block page_title %}{% trans 'PGP Keyserver' %}{% endblock %}
-{% block page_header %}{% endblock %}
-{% block page_content %}
-  <div class="container">
+{% block head_title %}{% trans 'PGP Keyserver' %}{% endblock %}
+
+{% block body %}
+  <div class="row">
    <h1>{% blocktrans %}OpenPGP Public Key Server{% endblocktrans %}</h1>
    <hr/>
    <h2>{% blocktrans %}Extract an OpenPGP Key{% endblocktrans %}</h2>
    <form action="lookup" class="form-horizontal" method="get">
-    {% bootstrap_form lookup_form layout="horizontal" %}
+    {{ lookup_form|bootstrap_horizontal }}
     <div class="form-group">
      <input class="btn btn-danger" type="reset" value="{% trans 'Reset' %}"/>
      <input class="btn btn-primary" type="submit" value="{% trans 'Search' %}"/>
@@ -21,7 +21,7 @@
    <h2>{% blocktrans %}Submit a new OpenPGP Key{% endblocktrans %}</h2>
    <p>{% blocktrans %}Enter ASCII-armored OpenPGP key here:{% endblocktrans %}</p>
    <form action="add" method="post">
-    {% bootstrap_form add_form layout="inline" %}
+    {{ add_form|bootstrap_inline }}
     <div class="form-group">
      <input class="btn btn-danger" type="reset" value="{% trans 'Reset' %}"/>
      <input class="btn btn-primary" type="submit" value="{% trans 'Submit' %}"/>

@@ -2,9 +2,9 @@
 
 {% load i18n %}
 
-{% block page_title %}{% trans 'Key registered' %}{% endblock %}
-{% block page_header %}{% endblock %}
-{% block page_content %}
-  <div class="container">
+{% block head_title %}{% trans 'Key registered' %}{% endblock %}
+
+{% block body %}
+  <div class="row">
    <p>{% blocktrans %}PGP key registered.{% endblocktrans %}</p>
   </div>{% endblock %}

@@ -93,7 +93,7 @@ setup(
     packages=packages,
     cmdclass=cmdclasses,
     package_data=package_data,
-    tests_require=['Django', 'django-extensions', 'django-bootstrap3', 'pgpdump'],
+    tests_require=['django', 'django-bootstrap-form', 'pgpdump'],
     test_suite='run_tests.main',
     classifiers=[
         'Development Status :: 4 - Beta',

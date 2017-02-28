@@ -2,16 +2,18 @@
 
 {% load i18n %}
 
-{% block page_title %}{% blocktrans %}Search results for '{{ search }}'{% endblocktrans %}{% endblock %}
-{% block page_header %}
+{% block head_title %}{% blocktrans %}Search results for '{{ search }}'{% endblocktrans %}{% endblock %}
+
+{% block extra_head %}
   <style>
 .public-key-packet td:nth-child(1),
 .userid-packet td:nth-child(1) {
  font-weight: bold;
 }
   </style>{% endblock %}
-{% block page_content %}
-  <div class="container">
+
+{% block body %}
+  <div class="row">
    <div>
     <h1>{% blocktrans %}Search results for '{{ search }}'{% endblocktrans %}</h1>
     <div>

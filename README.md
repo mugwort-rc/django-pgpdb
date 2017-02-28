@@ -21,12 +21,10 @@ python manage.py runserver
 gpg --keyserver hkp:localhost:8000 --send-keys 0123456789ABCDEX
 ```
 
-## Required library
+## Requirements
 
 * Django
-* django-extensions
-* django-bootstrap3
+* django-bootstrap-form
 * pgpdump
 
 See the requirements.txt
-

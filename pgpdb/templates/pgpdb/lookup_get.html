@@ -2,10 +2,10 @@
 
 {% load i18n %}
 
-{% block page_title %}{% blocktrans with keyid=key.first.public_key.keyid %}Public Key Server -- Get ``{{ search }}''{% endblocktrans %}{% endblock %}
-{% block page_header %}{% endblock %}
-{% block page_content %}
-  <div class="container">
+{% block head_title %}{% blocktrans with keyid=key.first.public_key.keyid %}Public Key Server -- Get ``{{ search }}''{% endblocktrans %}{% endblock %}
+
+{% block body %}
+  <div class="row">
    <div>
     <h1>{% blocktrans with keyid=key.first.public_key.keyid %}Public Key Server -- Get ``{{ search }}''{% endblocktrans %}</h1>
     <hr/>

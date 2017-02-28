@@ -2,10 +2,10 @@
 
 {% load i18n %}
 
-{% block page_title %}{% blocktrans %}Search results for '{{ search }}'{% endblocktrans %}{% endblock %}
-{% block page_header %}{% endblock %}
-{% block page_content %}
-  <div class="container">
+{% block head_title %}{% blocktrans %}Search results for '{{ search }}'{% endblocktrans %}{% endblock %}
+
+{% block body %}
+  <div class="row">
    <div>
     <h1>{% blocktrans %}Search results for '{{ search }}'{% endblocktrans %}</h1>
     <div>

@@ -2,9 +2,9 @@
 
 {% load i18n %}
 
-{% block page_title %}{% trans 'Invalid PGP key' %}{% endblock %}
-{% block page_header %}{% endblock %}
-{% block page_content %}
-  <div class="container">
+{% block head_title %}{% trans 'Invalid PGP key' %}{% endblock %}
+
+{% block body %}
+  <div class="row">
    <p>{% blocktrans %}Invalid public key.{% endblocktrans %}</p>
   </div>{% endblock %}
