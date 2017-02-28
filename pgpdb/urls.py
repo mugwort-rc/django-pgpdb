@@ -1,7 +1,9 @@
-from django.conf.urls import patterns, include, url
+from django.conf.urls import include, url
 
-urlpatterns = patterns('',
-    url(r'^$', 'pgpdb.views.index', name='pgpkeyserver'),
-    url(r'^add$', 'pgpdb.views.add'),
-    url(r'^lookup$', 'pgpdb.views.lookup'),
-)
+from . import views
+
+urlpatterns = [
+    url(r"^$", views.index, name="index"),
+    url(r"^add$", views.add, name="add"),
+    url(r"^lookup$", views.lookup, name="lookup"),
+]

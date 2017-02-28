@@ -20,22 +20,13 @@ from pgpdump.packet import (
 )
 from pgpdump.utils import crc24, PgpdumpException
 
-from django_extensions.db.fields import UUIDField
-
-import utils
+from . import utils
 
 def register_file(path, data):
     return default_storage.save(path, ContentFile(data))
 
 def unregister_file(fp):
-    path = os.path.dirname(fp.path)
     default_storage.delete(fp)
-    if len(os.listdir(path)) != 0:
-        return
-    try:
-        os.rmdir(path)
-    except OSError:
-        pass
 
 def read_file(fp):
     return default_storage.open(fp).read()
@@ -67,8 +58,8 @@ class PGPKeyModelManager(models.Manager):
                 pgp = pgpdump.BinaryData(data)
             update_file(instance.file, pgp.data)
             crc = crc24(pgp.data)
-            crc_bin = ''.join([chr((crc >> i) & 0xff) for i in [16, 8, 0]])
-            instance.crc24 = base64.b64encode(crc_bin)
+            crc_bin = crc.to_bytes(3, "big")
+            instance.crc24 = base64.b64encode(crc_bin).decode("utf-8")
             instance.save()
 
             # parse packets
@@ -109,7 +100,7 @@ class PGPKeyModelManager(models.Manager):
                         keyid=keyid
                     )
                 elif isinstance(packet, UserIDPacket):
-                    userid = packet.data
+                    userid = packet.data.decode("utf-8")
                     last_userid = PGPUserIDModel.objects.create(
                         index=index,
                         key=instance,
@@ -152,7 +143,7 @@ def _pgp_key_model_upload_to(instance, filename):
     return os.path.join(settings.MEDIA_ROOT, path)
 
 class PGPKeyModel(models.Model):
-    uid = UUIDField()
+    uid = models.UUIDField()
     user = models.ForeignKey(User, blank=True, null=True)
     file = models.FileField(upload_to=_pgp_key_model_upload_to,
         storage=default_storage)
@@ -257,10 +248,10 @@ class PGPPublicKeyModel(PGPPacketModel):
     keyid = models.CharField(max_length=16)
 
     def algorithm_str(self):
-        return unicode(self.PKA_MAP[self.algorithm])
+        return str(self.PKA_MAP[self.algorithm])
 
     def simple_algorithm_str(self):
-        return unicode(self.SIMPLE_PKA_MAP[self.algorithm])
+        return str(self.SIMPLE_PKA_MAP[self.algorithm])
 
     def is_public_key(self):
         return True
@@ -399,17 +390,16 @@ class PGPSignatureModel(PGPPacketModel):
     keyid = models.CharField(max_length=16)
 
     def type_str(self):
-        return unicode(self.SIG_MAP[self.type])
+        return str(self.SIG_MAP[self.type])
 
     def pka_str(self):
-        return unicode(self.PKA_MAP[self.pka])
+        return str(self.PKA_MAP[self.pka])
 
     def simple_pka_str(self):
-        return unicode(self.SIMPLE_PKA_MAP[self.pka])
+        return str(self.SIMPLE_PKA_MAP[self.pka])
 
     def hash_str(self):
-        return unicode(self.HASH_MAP[self.hash])
+        return str(self.HASH_MAP[self.hash])
 
     def is_signature(self):
         return True
-

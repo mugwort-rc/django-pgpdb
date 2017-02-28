@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.test.client import Client, RequestFactory
 from django.utils.translation import ugettext_lazy as _
 
-import models
+from . import models
 
 import pgpdb
 
@@ -455,54 +455,54 @@ class PGPKeyModelTest(TestCase):
         algorithm_str = first.algorithm_str()
         PKA_MAP = models.PGPPublicKeyModel.PKA_MAP
         rsa_enc_sign = PKA_MAP[models.PGPPublicKeyModel.RSA_ENC_SIGN]
-        self.assertEqual(algorithm_str, unicode(rsa_enc_sign))
+        self.assertEqual(algorithm_str, str(rsa_enc_sign))
 
     def test_simple_algorithm_str(self):
         first = self.ALICE.public_keys.first()
         simple_str = first.simple_algorithm_str()
         SIMPLE_PKA_MAP = models.PGPPublicKeyModel.SIMPLE_PKA_MAP
         simple_rsa = SIMPLE_PKA_MAP[models.PGPPublicKeyModel.RSA_ENC_SIGN]
-        self.assertEqual(simple_str, unicode(simple_rsa))
+        self.assertEqual(simple_str, str(simple_rsa))
 
     def test_type_str(self):
         first = self.ALICE.signatures.first()
         type_str = first.type_str()
         SIG_MAP = models.PGPSignatureModel.SIG_MAP
         key_positive = SIG_MAP[models.PGPSignatureModel.KEY_POSITIVE]
-        self.assertEqual(type_str, unicode(key_positive))
+        self.assertEqual(type_str, str(key_positive))
 
     def test_pka_str(self):
         first = self.ALICE.signatures.first()
         pka_str = first.pka_str()
         PKA_MAP = models.PGPSignatureModel.PKA_MAP
         rsa_enc_sign = PKA_MAP[models.PGPSignatureModel.RSA_ENC_SIGN]
-        self.assertEqual(pka_str, unicode(rsa_enc_sign))
+        self.assertEqual(pka_str, str(rsa_enc_sign))
 
     def test_simple_pka_str(self):
         first = self.ALICE.signatures.first()
         simple_pka_str = first.simple_pka_str()
         SIMPLE_PKA_MAP = models.PGPSignatureModel.SIMPLE_PKA_MAP
         simple_rsa = SIMPLE_PKA_MAP[models.PGPSignatureModel.RSA_ENC_SIGN]
-        self.assertEqual(simple_pka_str, unicode(simple_rsa))
+        self.assertEqual(simple_pka_str, str(simple_rsa))
 
     def test_hash_str(self):
         first = self.ALICE.signatures.first()
         hash_str = first.hash_str()
         HASH_MAP = models.PGPSignatureModel.HASH_MAP
         sha1 = HASH_MAP[models.PGPSignatureModel.SHA1]
-        self.assertEqual(hash_str, unicode(sha1))
+        self.assertEqual(hash_str, str(sha1))
 
 class PGPDBViewTest(TestCase):
     def setUp(self):
         self.CLIENT = Client()
 
     def test_index(self):
-        uri = reverse('pgpdb.views.index')
+        uri = reverse('index')
         resp = self.CLIENT.get(uri)
         self.assertTemplateUsed(resp, 'pgpdb/index.html')
 
     def test_add(self):
-        uri = reverse('pgpdb.views.add')
+        uri = reverse('add')
 
         data = {
             'keytext': GPG_ALICE_KEY,
@@ -522,7 +522,7 @@ class PGPDBViewTest(TestCase):
         self.assertTemplateUsed(resp, 'pgpdb/add_method_not_allowed.html')
 
     def test_add_multi(self):
-        uri = reverse('pgpdb.views.add')
+        uri = reverse('add')
 
         self.assertEqual(models.PGPKeyModel.objects.all().count(), 0)
 
@@ -539,7 +539,7 @@ class PGPDBViewTest(TestCase):
         self.assertEqual(last.ascii_armor(), PGPDB_BOB_KEY)
 
     def test_lookup(self):
-        uri = reverse('pgpdb.views.lookup')
+        uri = reverse('lookup')
 
         data = {
             'op': 'index',
@@ -572,7 +572,7 @@ class PGPDBViewTest(TestCase):
         self.assertTemplateUsed(resp, 'pgpdb/lookup_get.html')
 
     def test_lookup_mr(self):
-        uri = reverse('pgpdb.views.lookup')
+        uri = reverse('lookup')
 
         data = {
             'op': 'index',
@@ -591,7 +591,7 @@ class PGPDBViewTest(TestCase):
         }
         resp = self.CLIENT.get(uri, data=data)
         self.assertEqual(resp['Content-Type'], 'text/plain')
-        self.assertEqual(resp.content, MACHINE_READABLE_INDEX1)
+        self.assertEqual(resp.content.decode("ascii"), MACHINE_READABLE_INDEX1)
 
         data = {
             'op': 'get',
@@ -600,7 +600,7 @@ class PGPDBViewTest(TestCase):
         }
         resp = self.CLIENT.get(uri, data=data)
         self.assertEqual(resp['Content-Type'], 'application/pgp-keys')
-        self.assertEqual(resp.content, PGPDB_ALICE_KEY)
+        self.assertEqual(resp.content.decode("ascii"), PGPDB_ALICE_KEY)
 
         models.PGPKeyModel.objects.save_to_storage(None, GPG_BOB_KEY)
 
@@ -611,7 +611,7 @@ class PGPDBViewTest(TestCase):
         }
         resp = self.CLIENT.get(uri, data=data)
         self.assertEqual(resp['Content-Type'], 'text/plain')
-        self.assertEqual(resp.content, MACHINE_READABLE_INDEX2)
+        self.assertEqual(resp.content.decode("ascii"), MACHINE_READABLE_INDEX2)
 
         data = {
             'op': 'get',
@@ -620,5 +620,4 @@ class PGPDBViewTest(TestCase):
         }
         resp = self.CLIENT.get(uri, data=data)
         self.assertEqual(resp['Content-Type'], 'application/pgp-keys')
-        self.assertEqual(resp.content, PGPDB_MULTI_KEY)
-
+        self.assertEqual(resp.content.decode("ascii"), PGPDB_MULTI_KEY)

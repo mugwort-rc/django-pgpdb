@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-import forms
-import models
+from . import forms
+from . import models
 
 class PGPKeyModelAdmin(admin.ModelAdmin):
     list_display = ('uid', 'user', 'user_ids', 'key_id', 'is_revoked', 'crc24', 'file',)

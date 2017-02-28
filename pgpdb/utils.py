@@ -1,7 +1,7 @@
 import base64
 import calendar
 import datetime
-import urllib
+import urllib.parse
 
 import pgpdb
 from pgpdump.packet import (
@@ -22,9 +22,9 @@ SAFE_7BIT = r' !"#$%&\'()*+,-./;<=>?@[\\]^_`{|}~'
 def encode_ascii_armor(data, crc=None):
     if crc is None:
         crc = crc24(bytearray(data))
-        crc = ''.join([chr((crc >> i) & 0xff) for i in [16, 8, 0]])
-        crc = base64.b64encode(crc)
-    data = base64.b64encode(str(data))
+        crc = crc.to_bytes(3, "big")
+        crc = base64.b64encode(crc).decode("ascii")
+    data = base64.b64encode(data).decode("ascii")
     data = '\n'.join(data[i:i+64] for i in range(0, len(data), 64))
     return PGP_ARMOR_BASE.format(data, crc)
 
@@ -37,7 +37,7 @@ def parse_public_key_packets(pgp):
         if ( tmp and
              isinstance(packet, PublicKeyPacket) and
              not isinstance(packet, PublicSubkeyPacket) ):
-            data = str(pgp.data)[start:next]
+            data = bytes(pgp.data)[start:next]
             start = next
             result.append((data, tmp))
             tmp = []
@@ -111,7 +111,7 @@ def keys_ascii_armor(keys):
     if keys.count() == 1:
         return keys[0].ascii_armor()
     else:
-        data = ''
+        data = b''
         for key in keys:
             data += key.read()
         return encode_ascii_armor(data)
@@ -148,7 +148,7 @@ def build_machine_readable_indexes(keys):
 
         # uid
         for uid in key.userids.all():
-            escaped_uid = urllib.quote(uid.userid, SAFE_7BIT)
+            escaped_uid = urllib.parse.quote(uid.userid, SAFE_7BIT)
             sig = uid.signatures.filter(keyid=keyid).first()
             creation_unix = int(calendar.timegm(sig.creation_time.timetuple()))
             creationdate = str(creation_unix)

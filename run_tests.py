@@ -13,15 +13,21 @@ def main():
     # get Django running tests.
     try:
         settings.configure(
-            TEMPLATE_DIRS=[
-                os.path.join(BASE_DIR, 'templates'),
+            TEMPLATES = [
+                {
+                    'BACKEND': 'django.template.backends.django.DjangoTemplates',
+                    'DIRS': [
+                        os.path.join(BASE_DIR, 'templates'),
+                    ],
+                    'APP_DIRS': True,
+                },
             ],
             INSTALLED_APPS=[
                 'django.contrib.auth',
                 'django.contrib.contenttypes',
                 'django.contrib.admin',
                 'django.contrib.sessions',
-                'bootstrap3',
+                'bootstrapform',
                 'pgpdb',
             ],
             # Django replaces this, but it still wants it. *shrugs*

@@ -12,7 +12,7 @@ from pgpdump.packet import (
     UserAttributePacket
 )
 
-import forms, models, utils
+from . import forms, models, utils
 
 def index(request):
     c = {
@@ -34,8 +34,8 @@ def add(request):
         keytext = form.cleaned_data['keytext']
         # check keytext
         try:
-            pgp = pgpdump.AsciiData(keytext)
-        except Exception:
+            pgp = pgpdump.AsciiData(keytext.encode("utf-8", "ignore"))
+        except:
             raise __AddException
         keys = utils.parse_public_key_packets(pgp)
         keytexts = []
